@@ -1,3 +1,4 @@
+//代码清单11-3 关闭非活动连接
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
