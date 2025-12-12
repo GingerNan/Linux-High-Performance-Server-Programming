@@ -25,8 +25,8 @@ public:
         : next(NULL), prev(NULL), rotation(rot), time_slot(ts){}
 
 public:
-    int rotation;   // 记录定时器在时间轮转多少圈后生效
-    int time_slot;  // 记录定时器属于时间轮上哪个槽（对应的链表，下同）
+    int rotation;                   // 记录定时器在时间轮转多少圈后生效
+    int time_slot;                  // 记录定时器属于时间轮上哪个槽（对应的链表，下同）
     void (*cb_func)(client_data*);  // 定时器回调函数
     client_data* user_data;         // 客户数据
 
