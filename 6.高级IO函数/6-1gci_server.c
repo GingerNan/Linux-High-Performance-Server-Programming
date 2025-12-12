@@ -10,6 +10,13 @@
 #include <string.h>
 #include <libgen.h>
 
+/**
+ *  先关闭标准输出文件描述符 STDOUT_FILENO（值是1），然后复制socket文件描述符connf。
+ * 因为dup总是返回系统中最小的可用文件描述符，所以它的返回值实际上是1，即之前关闭的标
+ * 准输出文件描述符的值。
+ *  这样一来，服务器输出到标准输出的内容（"abcd"）就会直接发送到与客户连接对应的socket
+ * 上，因此printf调用的输出将被客户端获得（而不是显示在服务器程序的终端上）。
+ */
 int main(int argc, char* argv[])
 {
     if (argc <= 2)
