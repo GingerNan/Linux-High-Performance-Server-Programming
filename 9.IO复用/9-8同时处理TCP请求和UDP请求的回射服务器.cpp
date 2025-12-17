@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <sys/epoll.h>
 #include <pthread.h>
+#include <stdio.h>
+#include <assert.h>
 
 #define MAX_EVENT_NUMBER 1024
 #define TCP_BUFFER_SIZE 512
@@ -22,7 +24,7 @@ int setnonblocking(int fd)
     return old_option;
 }
 
-void addfd(int epollfd, int fd, bool enable_et)
+void addfd(int epollfd, int fd)
 {
     epoll_event event;
     event.data.fd = fd;
@@ -43,7 +45,7 @@ int main(int argc, char* argv[])
     int port = atoi(argv[2]);
 
     int ret = 0;
-    sturct sockeaddr_in address;
+    struct sockaddr_in address;
     bzero(&address, sizeof(address));
     address.sin_family = AF_INET;
     inet_pton(AF_INET, ip, &address.sin_addr);
@@ -75,6 +77,69 @@ int main(int argc, char* argv[])
     assert(epollfd != -1);
 
     /* 注册TCP socket 和 UDP socket上的可读事件 */
-    int epollfd = epoll_create(5);
-    
+    addfd(epollfd, listenfd);
+    addfd(epollfd, udpfd);
+
+    while (1)
+    {
+        int number = epoll_wait(epollfd, events, MAX_EVENT_NUMBER, -1);
+        if (number < 0)
+        {
+            printf("epoll failure\n");
+            break;
+        }
+
+        for (int i = 0; i < number; i++)
+        {
+            int sockfd = events[i].data.fd;
+            if (sockfd == listenfd)
+            {
+                struct sockaddr_in client_address;
+                socklen_t client_addrlength = sizeof(client_address);
+                int connfd = accept(listenfd, (struct sockaddr*)&client_address, &client_addrlength);
+                addfd(epollfd, connfd);
+            }
+            else if (sockfd == udpfd)
+            {
+                char buf[UDP_BUFFER_SIZE];
+                memset(buf, '\0', UDP_BUFFER_SIZE);
+                struct sockaddr_in client_address;
+                socklen_t client_addrlength = sizeof(client_address);
+
+                ret = recvfrom(udpfd, buf, UDP_BUFFER_SIZE-1, 0, (struct sockaddr*)&client_address, client_addrlength);
+            }
+            else if (events[i].events & EPOLLIN)
+            {
+                char buf[TCP_BUFFER_SIZE];
+                while (1)
+                {
+                    memset(buf, '\0', TCP_BUFFER_SIZE);
+                    ret = recv(sockfd, buf, TCP_BUFFER_SIZE-1, 0);
+                    if (ret < 0)
+                    {
+                        if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
+                        {
+                            break;
+                        }
+                        close(sockfd);
+                        break;
+                    }
+                    else if (ret == 0)
+                    {
+                        close(sockfd);
+                    }
+                    else
+                    {
+                        send(sockfd, buf, ret, 0);
+                    }
+                }
+            }
+            else
+            {
+                printf("something else happened\n");
+            }
+        }
+    }
+    close(listenfd);
+    return 0;
 }
